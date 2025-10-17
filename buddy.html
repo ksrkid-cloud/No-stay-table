@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>จับบัดดี้ออนไลน์ (ล็อกอิน + ล้าง)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: Arial, sans-serif; background:#f7fafc; color:#222; padding:18px; }
+.card { background:#fff; border-radius:12px; padding:18px; box-shadow:0 6px 18px rgba(0,0,0,0.06); max-width:500px; margin:20px auto; }
+h1 { font-size:22px; margin-bottom:10px; }
+input, button { font-size:16px; padding:8px 10px; border-radius:8px; border:1px solid #ccc; }
+button { background:#2b6cb0; color:#fff; border:none; cursor:pointer; }
+button.ghost { background:#edf2f7; color:#222; border:1px solid #ccc; }
+.row { display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+.status { margin-top:12px; padding:10px; border-radius:8px; background:#f1f5f9; }
+.result { margin-top:12px; font-weight:600; font-size:18px; }
+</style>
+</head>
+<body>
+<div class="card">
+<h1>🎯 จับบัดดี้ออนไลน์</h1>
+<p>ใส่ชื่อและตั้งพาสเวิร์ดของคุณ จากนั้นกด "ล็อกอิน & จับบัดดี้"</p>
+
+<div class="row">
+<input type="text" id="nameInput" placeholder="ชื่อของคุณ">
+<input type="password" id="passInput" placeholder="พาสเวิร์ด">
+<button id="loginBtn">ล็อกอิน & จับบัดดี้</button>
+<button id="logoutBtn" class="ghost" style="display:none;">ออกจากระบบ</button>
+<button id="resetBtn" class="ghost">🗑️ ล้างการจับบัดดี้ทั้งหมด</button>
+</div>
+
+<div id="statusBox" class="status" style="display:none;">
+<span id="countText"></span>
+</div>
+
+<div id="resultBox" style="display:none;">
+<p class="result" id="resultText"></p>
+</div>
+
+<footer style="margin-top:15px; text-align:center; font-size:13px; color:#666;">
+รายชื่อที่กำหนด: Praew, Po, Mark, Mo, Frank, Tuan, Kid
+</footer>
+</div>
+
+<script>
+const NAMES = ["Praew","Po","Mark","Mo","Frank","Tuan","Kid"];
+const STORAGE_KEY = "buddy_assignments_pw_v3";
+
+const nameInput = document.getElementById("nameInput");
+const passInput = document.getElementById("passInput");
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const resetBtn = document.getElementById("resetBtn");
+const resultBox = document.getElementById("resultBox");
+const resultText = document.getElementById("resultText");
+const countText = document.getElementById("countText");
+const statusBox = document.getElementById("statusBox");
+
+// แฮชง่าย ๆ สำหรับพาสเวิร์ด
+function hashString(str) {
+  let hash = 0;
+  for (let i=0;i<str.length;i++) {
+    hash = ((hash<<5)-hash)+str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+}
+
+function loadAssignments() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } 
+  catch { return {}; }
+}
+
+function saveAssignments(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function updateStatus() {
+  const data = loadAssignments();
+  const count = Object.keys(data).length;
+  countText.innerHTML = `จับบัดดี้ไปแล้ว <b>${count}</b> จาก ${NAMES.length} คน`;
+  statusBox.style.display = "block";
+}
+
+function handleLogin() {
+  const name = nameInput.value.trim();
+  const pass = passInput.value.trim();
+  if (!NAMES.includes(name)) {
+    alert("ชื่อไม่ถูกต้อง! ต้องพิมพ์ตามรายชื่อที่กำหนด");
+    return;
+  }
+  if (!pass) {
+    alert("โปรดใส่พาสเวิร์ดของคุณ");
+    return;
+  }
+
+  const data = loadAssignments();
+  const passHash = hashString(pass);
+
+  if (data[name]) {
+    if (data[name].hash !== passHash) {
+      alert("พาสเวิร์ดไม่ถูกต้อง!");
+      return;
+    }
+    resultText.textContent = `บัดดี้ของคุณคือ ${data[name].buddy}`;
+    resultBox.style.display = "block";
+    afterLoginUI();
+    updateStatus();
+    return;
+  }
+
+  const used = new Set(Object.values(data).map(x=>x.buddy));
+  const available = NAMES.filter(n => !used.has(n) && n !== name);
+  if (available.length===0) {
+    alert("ไม่มีชื่อเหลือให้สุ่มแล้ว!");
+    return;
+  }
+
+  const buddy = available[Math.floor(Math.random()*available.length)];
+  data[name] = {buddy: buddy, hash: passHash};
+  saveAssignments(data);
+
+  resultText.textContent = `บัดดี้ของคุณคือ ${buddy}`;
+  resultBox.style.display = "block";
+  afterLoginUI();
+  updateStatus();
+}
+
+function afterLoginUI() {
+  loginBtn.style.display = "none";
+  logoutBtn.style.display = "inline-block";
+  nameInput.disabled = true;
+  passInput.disabled = true;
+}
+
+function handleLogout() {
+  loginBtn.style.display = "inline-block";
+  logoutBtn.style.display = "none";
+  nameInput.disabled = false;
+  passInput.disabled = false;
+  nameInput.value = "";
+  passInput.value = "";
+  resultBox.style.display = "none";
+}
+
+function handleReset() {
+  if(confirm("คุณแน่ใจไหมว่าต้องการล้างการจับบัดดี้ทั้งหมด?")) {
+    localStorage.removeItem(STORAGE_KEY);
+    alert("ล้างข้อมูลทั้งหมดเรียบร้อย!");
+    location.reload();
+  }
+}
+
+loginBtn.addEventListener("click", handleLogin);
+logoutBtn.addEventListener("click", handleLogout);
+resetBtn.addEventListener("click", handleReset);
+
+updateStatus();
+</script>
+</body>
+</html>
